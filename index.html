@@ -1735,9 +1735,25 @@ function makeStd(){
   return l;
 }
 std=makeStd().addTo(map);
-const sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Imagery &copy; Esri"});
-$("#btn-std").onclick=()=>{map.removeLayer(sat);std.addTo(map);$("#btn-std").setAttribute("aria-pressed","true");$("#btn-sat").setAttribute("aria-pressed","false")};
-$("#btn-sat").onclick=()=>{map.removeLayer(std);sat.addTo(map);$("#btn-sat").setAttribute("aria-pressed","true");$("#btn-std").setAttribute("aria-pressed","false")};
+const SATS=[
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+];
+let sat=null,si=0,satTimer=null;
+function makeSat(){
+  let ok=false,bad=0;
+  const l=L.tileLayer(SATS[si],{maxZoom:19,maxNativeZoom:18,attribution:"Imagery &copy; Esri"});
+  const next=()=>{if(ok||!map.hasLayer(l))return;
+    if(si<SATS.length-1){si++;map.removeLayer(l);sat=makeSat().addTo(map);armSat()}
+    else $("#mapstatus").innerHTML='卫星图加载不出来，可能是当前网络访问不到卫星图服务。可以<a href="https://www.google.com/maps/@13.43,103.87,13z/data=!3m1!1e3" target="_blank" rel="noopener">在 Google 地图里看卫星图 ↗</a>，或切回标准地图。';};
+  l.on("tileload",()=>{if(!ok&&$("#mapstatus").textContent==="正在加载卫星图…")$("#mapstatus").textContent="";ok=true;clearTimeout(satTimer)});
+  l.on("tileerror",()=>{if(++bad>=4)next()});
+  l._next=next;return l;
+}
+function armSat(){clearTimeout(satTimer);satTimer=setTimeout(()=>sat&&sat._next(),8000)}
+$("#btn-std").onclick=()=>{if(sat)map.removeLayer(sat);clearTimeout(satTimer);std.addTo(map);$("#btn-std").setAttribute("aria-pressed","true");$("#btn-sat").setAttribute("aria-pressed","false")};
+$("#btn-sat").onclick=()=>{map.removeLayer(std);if(!sat)sat=makeSat();sat.addTo(map);armSat();$("#mapstatus").textContent="正在加载卫星图…";$("#btn-sat").setAttribute("aria-pressed","true");$("#btn-std").setAttribute("aria-pressed","false")};
 
 let layer=L.layerGroup().addTo(map),arrowLayer=L.layerGroup().addTo(map);
 const visibleDays=()=>current==="all"?DAYS:DAYS.filter(d=>d.id===current);
