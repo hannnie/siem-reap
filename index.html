@@ -829,7 +829,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
     <button id="btn-sat" aria-pressed="false">卫星图</button>
   </div>
   <div class="mapstatus js-only" id="mapstatus"></div>
-  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-e</div>
+  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-f</div>
   <div class="legend js-only" id="legend"></div>
 
   <main id="content" class="js-only"></main>
@@ -1821,20 +1821,29 @@ $("#btn-fit").onclick=fit;
 
 /* 我的位置 */
 let meMarker=null,meCircle=null,watching=false,firstFix=true;
+function showMe(pos){
+  const ll=[pos.coords.latitude,pos.coords.longitude];watching=true;
+  if(!meMarker){meMarker=L.marker(ll,{icon:L.divIcon({className:"",html:'<div class="me-dot"></div>',iconSize:[16,16],iconAnchor:[8,8]}),zIndexOffset:1000,interactive:false}).addTo(map);meCircle=L.circle(ll,{radius:pos.coords.accuracy,color:"#1A73E8",weight:1,fillOpacity:.08,interactive:false}).addTo(map)}
+  else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(pos.coords.accuracy)}
+  if(firstFix){map.setView(ll,Math.max(map.getZoom(),15));firstFix=false}
+  $("#mapstatus").textContent=`已显示你的位置（精度约 ${Math.round(pos.coords.accuracy)} 米），会随你移动更新。再点一次按钮回到你的位置。`;
+  $("#btn-loc").textContent="回到我的位置";
+}
+function locErr(err,stage){
+  const code=err&&err.code,msg=err&&err.message||"";
+  const tip=code===1?"没有拿到定位权限。请确认 Safari 的网站设置里“位置”为允许，然后<b>完全关闭这个网页标签再重新打开</b>。如果是从主屏幕图标打开的，改用 Safari 直接打开网址试试。"
+    :code===3?"定位超时，室内信号弱时常见，走到窗边或室外再点一次。"
+    :"暂时定位不到，稍后再试。";
+  $("#mapstatus").innerHTML=tip+`<br><span style="opacity:.6">诊断信息：${stage} · 代码 ${code??"无"} · ${esc(msg)} · ${window.isSecureContext?"安全连接":"非安全连接"}</span>`;
+}
 $("#btn-loc").onclick=()=>{
   if(!navigator.geolocation){$("#mapstatus").textContent="这个浏览器不支持定位。";return}
   if(watching&&meMarker){map.setView(meMarker.getLatLng(),16);return}
   $("#mapstatus").textContent="正在定位…第一次会询问是否允许使用位置。";
-  navigator.geolocation.watchPosition(pos=>{
-    const ll=[pos.coords.latitude,pos.coords.longitude];watching=true;
-    if(!meMarker){meMarker=L.marker(ll,{icon:L.divIcon({className:"",html:'<div class="me-dot"></div>',iconSize:[16,16],iconAnchor:[8,8]}),zIndexOffset:1000,interactive:false}).addTo(map);meCircle=L.circle(ll,{radius:pos.coords.accuracy,color:"#1A73E8",weight:1,fillOpacity:.08,interactive:false}).addTo(map)}
-    else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(pos.coords.accuracy)}
-    if(firstFix){map.setView(ll,Math.max(map.getZoom(),15));firstFix=false}
-    $("#mapstatus").textContent=`已显示你的位置（精度约 ${Math.round(pos.coords.accuracy)} 米），会随你移动更新。再点一次按钮回到你的位置。`;
-    $("#btn-loc").textContent="回到我的位置";
-  },err=>{
-    $("#mapstatus").innerHTML=err.code===1?"没有定位权限。iPhone 请检查两处：① 设置 → 隐私与安全性 → 定位服务 → <b>Safari 网站</b>，选“使用 App 期间”；② 在 Safari 地址栏点左侧的 <b>“大小”图标 → 网站设置 → 位置</b>，选“允许”或“询问”。改好后刷新页面再点一次。":"暂时定位不到，走到空旷处再试。";
-  },{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+  navigator.geolocation.getCurrentPosition(pos=>{
+    showMe(pos);
+    navigator.geolocation.watchPosition(showMe,()=>{},{enableHighAccuracy:true,maximumAge:10000,timeout:30000});
+  },err=>locErr(err,"首次定位"),{enableHighAccuracy:false,maximumAge:60000,timeout:20000});
 };
 
 /* ---------- 标签页与内容 ---------- */
