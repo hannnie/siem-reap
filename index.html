@@ -735,6 +735,10 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
 .mk-lab{position:absolute;left:28px;top:3px;white-space:nowrap;font:500 11px var(--sans);color:#1B241E;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff}
 .mk-lab b{font-weight:700;font-size:12px}.mk-lab i{font-style:normal;font-family:var(--latin)}
 
+#map.z-lo .mk-lab{display:none}
+#map.z-lo .mk-lab.a{display:block}#map.z-lo .mk-lab.a i{display:none}
+#map.z-mid .mk-lab.b i{display:none}
+.chev{width:18px;height:18px;filter:drop-shadow(0 0 1px rgba(0,0,0,.35))}
 .arrow{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:13px solid var(--c);filter:drop-shadow(0 0 1.5px #fff)}
 .me-dot{width:16px;height:16px;border-radius:50%;background:var(--me);border:3px solid #fff;box-shadow:0 0 0 6px rgba(26,115,232,.25)}
 
@@ -825,7 +829,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
     <button id="btn-sat" aria-pressed="false">卫星图</button>
   </div>
   <div class="mapstatus js-only" id="mapstatus"></div>
-  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-d</div>
+  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-e</div>
   <div class="legend js-only" id="legend"></div>
 
   <main id="content" class="js-only"></main>
@@ -1760,6 +1764,15 @@ $("#btn-sat").onclick=()=>{map.removeLayer(std);if(!sat)sat=makeSat();sat.addTo(
 let layer=L.layerGroup().addTo(map),arrowLayer=L.layerGroup().addTo(map);
 const visibleDays=()=>current==="all"?DAYS:DAYS.filter(d=>d.id===current);
 
+function curve(a,b){ // 二次贝塞尔曲线，统一向行进方向左侧微弯
+  const k=Math.cos(a.lat*Math.PI/180);
+  const ax=a.lng*k,ay=a.lat,bx=b.lng*k,by=b.lat;
+  const mx=(ax+bx)/2,my=(ay+by)/2,dx=bx-ax,dy=by-ay;
+  const cx=mx-dy*0.18,cy=my+dx*0.18;
+  const out=[];
+  for(let i=0;i<=24;i++){const t=i/24,u=1-t;out.push([u*u*ay+2*u*t*cy+t*t*by,(u*u*ax+2*u*t*cx+t*t*bx)/k])}
+  return out;
+}
 function drawMap(){
   layer.clearLayers();
   const seen={};
@@ -1767,8 +1780,8 @@ function drawMap(){
     const col=cssv(d.color);
     const pts=d.route.map(i=>[P[i].lat,P[i].lng]);
     for(let i=0;i<pts.length-1;i++){
-      const dashed=d.route[i+1]==="bakheng";
-      L.polyline([pts[i],pts[i+1]],{color:col,weight:4,opacity:.85,dashArray:dashed?"6 8":null,interactive:false}).addTo(layer);
+      const opt=d.route[i+1]==="bakheng";
+      L.polyline(curve(P[d.route[i]],P[d.route[i+1]]),{color:col,weight:2.5,opacity:.9,dashArray:opt?"1 7":"7 6",lineCap:"round",lineJoin:"round",interactive:false}).addTo(layer);
     }
     d.blocks.forEach(b=>b.items.forEach(it=>{
       if(!it.at||seen[it.at])return;seen[it.at]=1;const p=P[it.at];
@@ -1776,7 +1789,7 @@ function drawMap(){
       if(p.kind==="hotel")html=`<div class="mk h">宿</div>`;
       else if(p.kind==="place"){html=`<div class="mk t" style="--c:${col}"></div>`;size=[18,18]}
       else html=`<div class="mk ${p.tier==="A"?"a":"b"}" style="--c:${col}">${it.n}</div>`;
-      html+=`<span class="mk-lab">${p.zh?`<b>${esc(p.zh)}</b> `:""}<i>${esc(p.en)}</i></span>`;
+      html+=`<span class="mk-lab ${p.kind==="spot"?(p.tier==="A"?"a":"b"):"h"}">${p.zh?`<b>${esc(p.zh)}</b> `:""}<i>${esc(p.en)}</i></span>`;
       const m=L.marker([p.lat,p.lng],{icon:L.divIcon({html,className:"",iconSize:size,iconAnchor:[size[0]/2,size[1]/2]}),title:p.zh,zIndexOffset:p.tier==="A"?500:0,keyboard:true}).addTo(layer);
       m.on("click",()=>openSheet(it.at,d.id));
     }));
@@ -1789,15 +1802,17 @@ function drawArrows(){
     const col=cssv(d.color);
     for(let i=0;i<d.route.length-1;i++){
       const a=P[d.route[i]],b=P[d.route[i+1]];
-      const pa=map.latLngToLayerPoint([a.lat,a.lng]),pb=map.latLngToLayerPoint([b.lat,b.lng]);
-      if(pa.distanceTo(pb)<60)continue;
-      const ang=Math.atan2(pb.y-pa.y,pb.x-pa.x)*180/Math.PI+90;
-      const mid=map.layerPointToLatLng(L.point((pa.x+pb.x)/2,(pa.y+pb.y)/2));
-      L.marker(mid,{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:[14,13],iconAnchor:[7,6],html:`<div class="arrow" style="--c:${col};transform:rotate(${ang}deg)"></div>`})}).addTo(arrowLayer);
+      const c=curve(a,b);
+      const pa=map.latLngToLayerPoint(c[0]),pb=map.latLngToLayerPoint(c[24]);
+      if(pa.distanceTo(pb)<70)continue;
+      const p1=map.latLngToLayerPoint(c[11]),p2=map.latLngToLayerPoint(c[13]);
+      const ang=Math.atan2(p2.y-p1.y,p2.x-p1.x)*180/Math.PI;
+      L.marker(c[12],{interactive:false,keyboard:false,icon:L.divIcon({className:"",iconSize:[18,18],iconAnchor:[9,9],html:`<div class="chev" style="transform:rotate(${ang}deg)"><svg viewBox="0 0 18 18" width="18" height="18"><circle cx="9" cy="9" r="8" fill="#fff" fill-opacity=".92"/><path d="M7 5 L11.5 9 L7 13" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`})}).addTo(arrowLayer);
     }
   });
 }
-map.on("zoomend",()=>{drawArrows();document.getElementById("map").classList.toggle("lowzoom",map.getZoom()<15)});
+function zoomCls(){const z=map.getZoom(),m=document.getElementById("map");m.classList.toggle("z-lo",z<13);m.classList.toggle("z-mid",z>=13&&z<15)}
+map.on("zoomend",()=>{drawArrows();zoomCls()});
 function fit(){
   const ll=[];visibleDays().forEach(d=>d.route.forEach(i=>ll.push([P[i].lat,P[i].lng])));
   if(ll.length)map.fitBounds(ll,{padding:[36,36]});
@@ -1818,7 +1833,7 @@ $("#btn-loc").onclick=()=>{
     $("#mapstatus").textContent=`已显示你的位置（精度约 ${Math.round(pos.coords.accuracy)} 米），会随你移动更新。再点一次按钮回到你的位置。`;
     $("#btn-loc").textContent="回到我的位置";
   },err=>{
-    $("#mapstatus").textContent=err.code===1?"没有定位权限。请在浏览器设置里允许此网页使用位置；如果是直接打开的本地文件，部分手机浏览器不允许定位，按页面底部说明换成网址打开。":"暂时定位不到，走到空旷处再试。";
+    $("#mapstatus").innerHTML=err.code===1?"没有定位权限。iPhone 请检查两处：① 设置 → 隐私与安全性 → 定位服务 → <b>Safari 网站</b>，选“使用 App 期间”；② 在 Safari 地址栏点左侧的 <b>“大小”图标 → 网站设置 → 位置</b>，选“允许”或“询问”。改好后刷新页面再点一次。":"暂时定位不到，走到空旷处再试。";
   },{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
 };
 
