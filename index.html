@@ -825,6 +825,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
     <button id="btn-sat" aria-pressed="false">卫星图</button>
   </div>
   <div class="mapstatus js-only" id="mapstatus"></div>
+  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-c</div>
   <div class="legend js-only" id="legend"></div>
 
   <main id="content" class="js-only"></main>
@@ -1738,12 +1739,14 @@ std=makeStd().addTo(map);
 const SATS=[
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
   "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"
 ];
 let sat=null,si=0,satTimer=null;
 function makeSat(){
   let ok=false,bad=0;
-  const l=L.tileLayer(SATS[si],{maxZoom:19,maxNativeZoom:18,attribution:"Imagery &copy; Esri"});
+  const eox=SATS[si].includes("eox.at");
+  const l=L.tileLayer(SATS[si],{maxZoom:19,maxNativeZoom:eox?15:18,attribution:eox?'Sentinel-2 cloudless by <a href="https://s2maps.eu">EOX</a> (Copernicus Sentinel data 2020)':"Imagery &copy; Esri"});
   const next=()=>{if(ok||!map.hasLayer(l))return;
     if(si<SATS.length-1){si++;map.removeLayer(l);sat=makeSat().addTo(map);armSat()}
     else $("#mapstatus").innerHTML='卫星图加载不出来，可能是当前网络访问不到卫星图服务。可以<a href="https://www.google.com/maps/@13.43,103.87,13z/data=!3m1!1e3" target="_blank" rel="noopener">在 Google 地图里看卫星图 ↗</a>，或切回标准地图。';};
