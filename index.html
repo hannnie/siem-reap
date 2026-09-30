@@ -825,7 +825,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
     <button id="btn-sat" aria-pressed="false">卫星图</button>
   </div>
   <div class="mapstatus js-only" id="mapstatus"></div>
-  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-c</div>
+  <div class="mapstatus js-only" style="opacity:.6">页面版本 9.30-d</div>
   <div class="legend js-only" id="legend"></div>
 
   <main id="content" class="js-only"></main>
@@ -1721,9 +1721,8 @@ DAYS.forEach(d=>{d.route=[];let n=0;d.blocks.forEach(b=>b.items.forEach(it=>{if(
 let current="all";
 const map=L.map("map",{zoomControl:true,attributionControl:true}).setView([13.43,103.87],12);
 const PROVIDERS=[
-  ["https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{subdomains:"abcd",attribution:'&copy; OpenStreetMap &copy; CARTO'}],
-  ["https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OpenStreetMap'}],
-  ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{attribution:"&copy; Esri"}]
+  ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{attribution:"&copy; Esri, OpenStreetMap contributors"}],
+  ["https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}]
 ];
 let std=null,pi=0;
 function makeStd(){
@@ -1755,7 +1754,7 @@ function makeSat(){
   l._next=next;return l;
 }
 function armSat(){clearTimeout(satTimer);satTimer=setTimeout(()=>sat&&sat._next(),8000)}
-$("#btn-std").onclick=()=>{if(sat)map.removeLayer(sat);clearTimeout(satTimer);std.addTo(map);$("#btn-std").setAttribute("aria-pressed","true");$("#btn-sat").setAttribute("aria-pressed","false")};
+$("#btn-std").onclick=()=>{if(sat)map.removeLayer(sat);clearTimeout(satTimer);$("#mapstatus").textContent="";std.addTo(map);$("#btn-std").setAttribute("aria-pressed","true");$("#btn-sat").setAttribute("aria-pressed","false")};
 $("#btn-sat").onclick=()=>{map.removeLayer(std);if(!sat)sat=makeSat();sat.addTo(map);armSat();$("#mapstatus").textContent="正在加载卫星图…";$("#btn-sat").setAttribute("aria-pressed","true");$("#btn-std").setAttribute("aria-pressed","false")};
 
 let layer=L.layerGroup().addTo(map),arrowLayer=L.layerGroup().addTo(map);
